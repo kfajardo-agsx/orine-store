@@ -9,11 +9,6 @@ export interface EditableSelectProps<T extends DBRecord = DBRecord> {
   displayField: string;
   extraFields?: string[];
   placeholder?: string;
-  /**
-   * Called when an option is selected (item) OR when user types a custom value.
-   * - If a DB record was chosen, `item` is the record and `typedValue` is undefined.
-   * - If a custom typed value should be delivered, call with (null, typedValue).
-   */
   onSelect: (item: T | null, typedValue?: string) => void;
   disableFreeType?: boolean; 
 }
@@ -84,7 +79,6 @@ export function EditableSelect<T extends DBRecord = DBRecord>({
               key={String(opt.id)}
               className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
               onMouseDown={(e) => {
-                // use onMouseDown to avoid blur-before-click problems
                 e.preventDefault();
                 setQuery(String(opt[displayField]));
                 setShowDropdown(false);

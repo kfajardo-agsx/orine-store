@@ -34,10 +34,18 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
   const [address, setAddress] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [deliveredBy, setDeliveredBy] = useState("");
-  const [lines, setLines] = useState<Line[]>([{ quantity: "0", unit: "", description: "", unit_price: "0.00", amount: 0 }]);
+  const [lines, setLines] = useState<Line[]>([{ quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { if (open) load(); }, [open]);
+
+  // lock background scroll while modal open
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
 
   async function load() {
     const { data: c } = await supabase.from("customers").select("*").order("name");
@@ -62,23 +70,37 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
     });
   }
 
+  function resetForm() {
+    setReceiptNumber("");
+    setCustomerName(null);
+    setCustomerId(null);
+    setAddress("");
+    setDate(new Date().toISOString().slice(0, 10));
+    setDeliveredBy("");
+    setLines([{ quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }]);
+  }
+
   async function save() {
     if (!receiptNumber) { toast.error("Enter receipt number"); return; }
+    if (!customerName || customerName === "") { toast.error("Set a valid customer name"); return; }
     let custId = customerId;
-    if (!customerId) {
-      const { data: newCustomer, error: customerError } = await supabase
-        .from("customers")
-        .insert({ name: customerName?.toLocaleUpperCase() })
-        .select()
-        .single();
+    if (!customerId && customerName) {
+        const { data: newCustomer, error: customerError } = await supabase
+          .from("customers")
+          .upsert(
+            [{ name: customerName.toLocaleUpperCase() }],
+            { onConflict: "name" }
+          )
+          .select()
+          .single();
 
-      if (customerError) {
-        toast.error(customerError.message);
-        return;
-      }
+        if (customerError) {
+          toast.error(customerError.message);
+          return;
+        }
 
-      custId = newCustomer.id;
-      setCustomerId(newCustomer.id);
+        custId = newCustomer.id;
+        setCustomerId(newCustomer.id);
     }
 
     for (const line of lines) {
@@ -91,8 +113,6 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
         return;
       }
     }
-    // for each line
-    // create/update the items table on database basing on name
 
     const total = lines.reduce((s, l) => s + (l.amount || 0), 0);
     setSaving(true);
@@ -109,7 +129,11 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
       created_by: uid
     }]);
     setSaving(false);
-    if (error) { alert(error.message); return; }
+    if (error) { toast.error(error.message); return; }
+
+    // reset BEFORE closing so new blank opens next time
+    resetForm();
+    toast.success("Receipt saved!");
     onClose();
   }
 
@@ -118,20 +142,25 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4">
-      <div className="w-full max-w-3xl bg-white rounded-xl shadow p-6">
-        <div className="flex justify-between items-start mb-4">
-          <h3 className="text-lg font-semibold">ORINE STORE Delivery Receipt</h3>
-          <div className="text-sm">Receipt #: <input className="border px-2 py-1 rounded w-40" value={receiptNumber} onChange={e => setReceiptNumber(e.target.value)} /></div>
+    <div
+      className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto"
+      onClick={onClose}
+      aria-modal="true"
+      role="dialog"
+    >
+      <div
+        className="w-full max-w-3xl bg-white rounded-xl shadow p-6 my-10 max-h-[90vh] overflow-y-auto"
+        style={{ WebkitOverflowScrolling: "touch" as any }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <h3 className="text-lg font-semibold">ORINE STORE <div>Delivery Receipt</div></h3>
+          <div className="text-sm">Receipt #:<div> <input className="border px-2 py-1 rounded w-full" value={receiptNumber} onChange={e => setReceiptNumber(e.target.value)} /></div></div>
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
             <label className="block text-sm text-gray-600">Customer</label>
-            {/* <select className="w-full border p-2 rounded" value={customerId || ""} onChange={e => onCustomerChange(e.target.value)}>
-              <option value="">-- Select Customer --</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select> */}
             <EditableSelect<Customer>
               value={customers.find(c => c.id === customerId)?.name || ""}
               table="customers"
@@ -150,14 +179,6 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
                 }
               }}
             />
-
-            {/* <label className="block text-sm text-gray-600 mt-2">Address</label> */}
-            {/* <textarea className="w-full border p-2 rounded" value={address} onChange={e => setAddress(e.target.value)} /> */}
-              {/* <input
-              className="w-full border p-1 rounded text-sm"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-            /> */}
           </div>
 
           <div>
@@ -224,7 +245,7 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
                   <td className="py-1">
                     <input
                       type="number"
-                      step="0.01"
+                      step="1.00"
                       className="w-16 border p-1 rounded text-sm"
                       value={ln.unit_price}
                       onChange={(e) =>
@@ -246,15 +267,14 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
             </tbody>
 
           </table>
-
-          <div className="flex items-center justify-between mt-3">
-            <button onClick={addRow} className="text-sm text-blue-600">+ Add Row</button>
-            <div className="font-semibold">Total: ₱{total.toFixed(2)}</div>
-          </div>
+        </div>
+        <div className="flex items-center justify-between mt-3">
+          <button onClick={addRow} className="text-sm text-blue-600">+ Add Row</button>
+          <div className="font-semibold">Total: ₱{total.toFixed(2)}</div>
         </div>
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-1 border rounded">Cancel</button>
+          <button onClick={() => { resetForm(); onClose(); }} className="px-3 py-1 border rounded">Cancel</button>
           <button onClick={save} disabled={saving} className="px-4 py-2 bg-amber-600 text-white rounded">{saving ? "Saving..." : "Save Receipt"}</button>
         </div>
       </div>
