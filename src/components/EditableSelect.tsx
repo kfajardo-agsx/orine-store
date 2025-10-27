@@ -48,14 +48,14 @@ export function EditableSelect<T extends DBRecord = DBRecord>({
         setOptions((data as unknown as T[]) || []);
     };
 
-    const t = setTimeout(fetch, 250);
+    const t = setTimeout(fetch, 150);
     return () => clearTimeout(t);
   }, [query, table, displayField, extraFields]);
 
   return (
     <div className="relative w-full">
       <input
-        className="w-full border p-1 rounded"
+        className="w-full border p-1 rounded text-sm"
         value={query}
         placeholder={placeholder}
         onChange={(e) => {
@@ -67,11 +67,9 @@ export function EditableSelect<T extends DBRecord = DBRecord>({
             setTimeout(() => {
             setShowDropdown(false);
 
-            // ✅ Only call onSelect(null, query) if free typing is allowed
             if (!disableFreeType) {
                 onSelect(null, query);
             } else {
-                // 🚫 If free typing is disabled, reset to the current selected value
                 setQuery(value || "");
             }
             }, 150);

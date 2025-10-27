@@ -45,7 +45,7 @@ export default function Home() {
             <p className="text-sm text-gray-500">Recent receipts</p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => setOpenForm(true)}>+ Add New</button>
+            <button onClick={() => setOpenForm(true)}>+New</button>
             <button onClick={signOut}>Logout</button>
           </div>
         </header>

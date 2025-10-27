@@ -1,8 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { EditableSelect } from "./EditableSelect";
+import toast from "react-hot-toast";
+import { Trash2 } from "lucide-react";
 
-type Line = { quantity: number; unit: string; description: string; unit_price: number; amount: number };
+type Line = { 
+  quantity: string; 
+  unit: string; 
+  description: string; 
+  unit_price: string; 
+  amount: number; 
+};
 
 type Customer = {
   id: string;
@@ -21,11 +29,12 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
   const [customers, setCustomers] = useState<any[]>([]);
   const [itemsCatalog, setItemsCatalog] = useState<any[]>([]);
   const [receiptNumber, setReceiptNumber] = useState("");
+  const [customerName, setCustomerName] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [deliveredBy, setDeliveredBy] = useState("");
-  const [lines, setLines] = useState<Line[]>([{ quantity: 1, unit: "", description: "", unit_price: 0, amount: 0 }]);
+  const [lines, setLines] = useState<Line[]>([{ quantity: "0", unit: "", description: "", unit_price: "0.00", amount: 0 }]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { if (open) load(); }, [open]);
@@ -40,34 +49,59 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
     setLines(prev => {
       const copy = [...prev];
       copy[idx] = { ...copy[idx], ...patch };
-      copy[idx].amount = Number((copy[idx].quantity * copy[idx].unit_price).toFixed(2));
+      copy[idx].amount = Number((Number(copy[idx].quantity) * Number(copy[idx].unit_price)).toFixed(2));
       return copy;
     });
   }
 
-  function addRow() { setLines(prev => [...prev, { quantity: 1, unit: "", description: "", unit_price: 0, amount: 0 }]); }
+  function addRow() { setLines(prev => [...prev, { quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }]); }
   function removeLine(i: number) {
     setLines(prev => {
         const next = prev.filter((_, idx) => idx !== i);
-        return next.length ? next : [{ quantity: 1, unit: '', description: '', unit_price: 0, amount: 0 }];
+        return next.length ? next : [{ quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }];
     });
   }
 
-  function onCustomerChange(id: string) {
-    setCustomerId(id);
-    const c = customers.find(x => x.id === id);
-    setAddress(c?.address || "");
-  }
-
   async function save() {
-    if (!receiptNumber) { alert("Enter receipt number"); return; }
+    if (!receiptNumber) { toast.error("Enter receipt number"); return; }
+    let custId = customerId;
+    if (!customerId) {
+      console.log(customerName)
+      const { data: newCustomer, error: customerError } = await supabase
+        .from("customers")
+        .insert({ name: customerName })
+        .select()
+        .single();
+
+      if (customerError) {
+        toast.error(customerError.message);
+        return;
+      }
+
+      custId = newCustomer.id;
+      setCustomerId(newCustomer.id);
+    }
+
+    for (const line of lines) {
+      const { error: itemError } = await supabase
+        .from("items")
+        .upsert([{ name: line.description.toLocaleUpperCase(), unit: line.unit, unit_price: line.unit_price }], { onConflict: "name" });
+
+      if (itemError) {
+        toast.error(`Failed to save item "${line.description}": ${itemError.message}`);
+        return;
+      }
+    }
+    // for each line
+    // create/update the items table on database basing on name
+
     const total = lines.reduce((s, l) => s + (l.amount || 0), 0);
     setSaving(true);
     const user = await supabase.auth.getUser();
     const uid = user?.data?.user?.id || null;
     const { error } = await supabase.from("orders").insert([{
       receipt_number: receiptNumber,
-      customer_id: customerId,
+      customer_id: custId,
       address,
       date,
       delivered_by: deliveredBy,
@@ -105,39 +139,44 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
               displayField="name"
               placeholder="Select customer"
               extraFields={["address"]}
-              disableFreeType={true}
-              onSelect={(cust) => {
+              onSelect={(cust: Customer | null, typed?: string) => {
                 if (cust) {
                   setCustomerId(cust.id);
+                  setCustomerName(cust.name);
                   setAddress(cust.address || "");
+                } else if (typed !== undefined) {
+                  setCustomerId(null);
+                  setCustomerName(typed);
+                  setAddress("");
                 }
               }}
             />
 
-            <label className="block text-sm text-gray-600 mt-2">Address</label>
+            {/* <label className="block text-sm text-gray-600 mt-2">Address</label> */}
             {/* <textarea className="w-full border p-2 rounded" value={address} onChange={e => setAddress(e.target.value)} /> */}
-              <textarea
-              className="w-full border p-2 rounded"
+              {/* <input
+              className="w-full border p-1 rounded text-sm"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-            />
+            /> */}
           </div>
 
           <div>
             <label className="block text-sm text-gray-600">Delivery Date</label>
-            <input type="date" className="w-full border p-2 rounded" value={date} onChange={e => setDate(e.target.value)} />
+            <input type="date" className="w-full border p-1 rounded text-sm" value={date} onChange={e => setDate(e.target.value)} />
             <label className="block text-sm text-gray-600 mt-2">Delivered by</label>
-            <input className="w-full border p-2 rounded" value={deliveredBy} onChange={e => setDeliveredBy(e.target.value)} />
+            <input className="w-full border p-1 rounded text-sm" value={deliveredBy} onChange={e => setDeliveredBy(e.target.value)} />
           </div>
         </div>
 
-        <div className="mb-4">
-          <table className="w-full text-sm border-collapse">
+        <div className="mb-4 overflow-x-auto">
+          <table className="min-w-[600px] w-full text-xs border-collapse">
             <thead>
               <tr className="text-left">
                 <th className="pb-2">Qty</th>
                 <th className="pb-2">Unit</th>
                 <th className="pb-2">Item</th>
+                <th className="pb-1"></th>
                 <th className="pb-2">Unit Price</th>
                 <th className="pb-2 text-right">Amount</th>
                 <th></th>
@@ -150,14 +189,14 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
                     <input
                       type="number"
                       min={0}
-                      className="w-16 border p-1"
-                      value={ln.quantity}
-                      onChange={(e) => updateLine(idx, { quantity: Number(e.target.value) })}
+                      className="w-12 border p-1 rounded text-sm"
+                      value={ln.quantity ?? ""}
+                      onChange={(e) => updateLine(idx, { quantity: e.target.value })}
                     />
                   </td>
                   <td className="py-1">
                     <input
-                      className="w-20 border p-1"
+                      className="w-16 border p-1 rounded text-sm"
                       value={ln.unit}
                       onChange={(e) => updateLine(idx, { unit: e.target.value })}
                     />
@@ -172,24 +211,25 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
                       onSelect={(it: Item | null, typed?: string) => {
                         if (it) {
                           updateLine(idx, {
-                            description: it.name,
+                            description: it.name.toLocaleUpperCase(),
                             unit: it.unit || "",
-                            unit_price: Number(it.unit_price ?? 0),
+                            unit_price: it.unit_price.toFixed(2).toString() ?? "0.00",
                           });
                         } else if (typed !== undefined) {
-                          updateLine(idx, { description: typed });
+                          updateLine(idx, { description: typed.toLocaleUpperCase() });
                         }
                       }}
                     />
                   </td>
+                  <td className="w-1"></td>
                   <td className="py-1">
                     <input
                       type="number"
                       step="0.01"
-                      className="w-28 border p-1"
+                      className="w-16 border p-1 rounded text-sm"
                       value={ln.unit_price}
                       onChange={(e) =>
-                        updateLine(idx, { unit_price: Number(e.target.value) })
+                        updateLine(idx, { unit_price: e.target.value })
                       }
                     />
                   </td>
@@ -197,9 +237,9 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
                   <td className="py-1">
                     <button
                       onClick={() => removeLine(idx)}
-                      className="text-red-600 text-sm"
+                      className="bg-white text-sm"
                     >
-                      Remove
+                      <Trash2 size={12} color="red" />
                     </button>
                   </td>
                 </tr>
