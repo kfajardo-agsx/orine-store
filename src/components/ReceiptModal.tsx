@@ -184,11 +184,20 @@ export default function ReceiptModal({ order, onClose }: { order: any; onClose: 
         style={{ WebkitOverflowScrolling: "touch" as any }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex gap-2 pb-4">
-            <button onClick={printReceipt} className="px-3 py-1 rounded text-sm">Print</button>
-            <button onClick={onClose} className="px-3 py-1 rounded text-sm">Close</button>
+        {/* <div className="flex gap-2 pb-4"> */}
+            {/* <button onClick={printReceipt} className="px-3 py-1 rounded text-sm">Print</button> */}
+            {/* <button onClick={onClose} className="px-3 py-1 rounded text-sm">Close</button> */}
+        {/* </div> */}
+        <div className="flex justify-end">
+          <button
+            onClick={onClose}
+            className="bg-white text-gray-600 hover:text-black text-xl leading-none"
+            aria-label="Close"
+          >
+            &times;
+          </button>
         </div>
-        <div className="flex justify-between items-start mb-3">
+        <div className="flex justify-between items-start">
           <div>
             <h3 className="text-lg font-semibold">Delivery Receipt #{order.receipt_number}</h3>
             <div className="text-sm text-gray-600">Date: <strong>{new Date(order.date).toLocaleDateString("en-PH", {

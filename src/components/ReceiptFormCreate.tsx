@@ -25,95 +25,19 @@ type Item = {
   unit_price: number;
 };
 
-type Order = {
-  id: string;
-  receipt_number: string;
-  customer_id?: string | null;
-  address?: string;
-  date?: string;
-  delivered_by?: string;
-  items?: Line[];
-  total?: number;
-  created_by?: string | null;
-  customer?: Customer;
-};
+export default function ReceiptFormCreate({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [itemsCatalog, setItemsCatalog] = useState<any[]>([]);
+  const [receiptNumber, setReceiptNumber] = useState("");
+  const [customerName, setCustomerName] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [address, setAddress] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [deliveredBy, setDeliveredBy] = useState("");
+  const [lines, setLines] = useState<Line[]>([{ quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }]);
+  const [saving, setSaving] = useState(false);
 
-export default function ReceiptForm({
-  open,
-  onClose,
-  order,
-  onSaved,
-}: {
-  open: boolean;
-  onClose: () => void;
-  order?: Order | null;
-  onSaved?: () => void;
-}) {
-    const [customers, setCustomers] = useState<any[]>([]);
-    const [itemsCatalog, setItemsCatalog] = useState<any[]>([]);
-    const [receiptNumber, setReceiptNumber] = useState("");
-    const [customerName, setCustomerName] = useState<string | null>(null);
-    const [customerId, setCustomerId] = useState<string | null>(null);
-    const [address, setAddress] = useState("");
-    const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-    const [deliveredBy, setDeliveredBy] = useState("");
-    const [lines, setLines] = useState<Line[]>([{ quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }]);
-    const [saving, setSaving] = useState(false);
-
-    useEffect(() => { if (open) loadLookups(); }, [open]);
-
-    async function loadLookups() {
-        const { data: c } = await supabase.from("customers").select("*").order("name");
-        const { data: it } = await supabase.from("items").select("*").order("name");
-        setCustomers(c || []);
-        setItemsCatalog(it || []);
-    }
-
-    useEffect(() => {
-        if (!open || !order) return;
-        if (customers.length === 0) return; // wait until customers loaded
-
-        const matchCust = customers.find(c => c.id === order.customer_id);
-        if (matchCust) {
-            setCustomerId(matchCust.id);
-            setCustomerName(matchCust.name.toLocaleUpperCase());
-            setAddress(matchCust.address || "");
-        } else if (order.customer) {
-            setCustomerId(order.customer.id || null);
-            setCustomerName(order.customer.name?.toLocaleUpperCase() || "");
-            setAddress(order.customer.address || order.address || "");
-        }
-    }, [open, order, customers]);
-
-    useEffect(() => {
-        if (!open) return;
-        if (order) {
-            setReceiptNumber(order.receipt_number || "");
-            setDate(order.date ? order.date.slice(0,10) : new Date().toISOString().slice(0,10));
-            setDeliveredBy(order.delivered_by || "");
-            // ensure lines shape
-            const safeLines: Line[] = (order.items && Array.isArray(order.items) && order.items.length)
-                ? order.items.map((l: any) => {
-                    const qtyNum = Number(l.quantity ?? 0);
-                    const priceNum = Number(l.unit_price ?? 0);
-                    const computed = l.amount ?? (qtyNum * priceNum);
-                    return {
-                        quantity: (l.quantity ?? "1").toString(),
-                        unit: l.unit ?? "",
-                        description: l.description ?? l.name ?? l.item ?? "",  // 👈 add l.item as fallback
-                        unit_price: typeof l.unit_price === "number"
-                        ? l.unit_price.toFixed(2)
-                        : (l.unit_price ?? "0.00"),
-                        amount: Number(computed || 0),
-                    } as Line;
-                    })
-                : [{ quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }];        setLines(safeLines);
-        } else {
-        // creating new: reset
-        resetForm();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, order]); 
+  useEffect(() => { if (open) load(); }, [open]);
 
   // lock background scroll while modal open
   useEffect(() => {
@@ -122,6 +46,12 @@ export default function ReceiptForm({
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, [open]);
+
+  async function load() {
+    const { data: c } = await supabase.from("customers").select("*").order("name");
+    const { data: it } = await supabase.from("items").select("*").order("name");
+    setCustomers(c || []); setItemsCatalog(it || []);
+  }
 
   function updateLine(idx: number, patch: Partial<Line>) {
     setLines(prev => {
@@ -159,15 +89,12 @@ export default function ReceiptForm({
       if (!line.unit_price || line.unit_price === "" || Number(line.unit_price) === 0) { toast.error("An item/s has no unit price set"); return; }
     }
 
-    setSaving(true);
-    try {
-      let custId = customerId;
-
-      if (!customerId && customerName) {
+    let custId = customerId;
+    if (!customerId && customerName) {
         const { data: newCustomer, error: customerError } = await supabase
           .from("customers")
           .upsert(
-            [{ name: customerName.toLocaleUpperCase(), address }],
+            [{ name: customerName.toLocaleUpperCase() }],
             { onConflict: "name" }
           )
           .select()
@@ -175,99 +102,45 @@ export default function ReceiptForm({
 
         if (customerError) {
           toast.error(customerError.message);
-          setSaving(false);
           return;
         }
 
         custId = newCustomer.id;
         setCustomerId(newCustomer.id);
-      }
+    }
 
-    // upsert items into catalog
-    // upsert items into catalog (parallelized)
-    const upsertPromises = lines.map(line => {
-    return supabase
+    for (const line of lines) {
+      const { error: itemError } = await supabase
         .from("items")
-        .upsert(
-        [
-            {
-            name: line.description.toLocaleUpperCase(),
-            unit: line.unit,
-            unit_price: line.unit_price,
-            },
-        ],
-        { onConflict: "name" }
-        );
-    });
+        .upsert([{ name: line.description.toLocaleUpperCase(), unit: line.unit, unit_price: line.unit_price }], { onConflict: "name" });
 
-    const results = await Promise.all(upsertPromises);
-
-    const itemError = results.find(r => r.error);
-    if (itemError && itemError.error) {
-    toast.error(
-        `Failed to save some items: ${itemError.error.message}`
-    );
-    setSaving(false);
-    return;
-    }
-
-      const total = lines.reduce((s, l) => s + (l.amount || 0), 0);
-      const user = await supabase.auth.getUser();
-      const uid = user?.data?.user?.id || null;
-
-      if (order && order.id) {
-        // update existing order
-        const { error } = await supabase
-          .from("orders")
-          .update([{
-            receipt_number: receiptNumber,
-            customer_id: custId,
-            address,
-            date,
-            delivered_by: deliveredBy,
-            items: lines,
-            total,
-          }])
-          .eq("id", order.id);
-
-        if (error) {
-          toast.error(error.message);
-          setSaving(false);
-          return;
-        }
-
-        toast.success("Receipt updated!");
-      } else {
-        // insert new order
-        const { error } = await supabase.from("orders").insert([{
-          receipt_number: receiptNumber,
-          customer_id: custId,
-          address,
-          date,
-          delivered_by: deliveredBy,
-          items: lines,
-          total,
-          created_by: uid
-        }]);
-
-        if (error) {
-          toast.error(error.message);
-          setSaving(false);
-          return;
-        }
-
-        toast.success("Receipt saved!");
-        // reset form after successful create so next open is blank
-        resetForm();
+      if (itemError) {
+        toast.error(`Failed to save item "${line.description}": ${itemError.message}`);
+        return;
       }
-
-      setSaving(false);
-      if (onSaved) onSaved();
-      onClose();
-    } catch (err: any) {
-      setSaving(false);
-      toast.error(err?.message || "Error saving receipt");
     }
+
+    const total = lines.reduce((s, l) => s + (l.amount || 0), 0);
+    setSaving(true);
+    const user = await supabase.auth.getUser();
+    const uid = user?.data?.user?.id || null;
+    const { error } = await supabase.from("orders").insert([{
+      receipt_number: receiptNumber,
+      customer_id: custId,
+      address,
+      date,
+      delivered_by: deliveredBy,
+      items: lines,
+      total,
+      created_by: uid
+    }]);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+
+    // reset BEFORE closing so new blank opens next time
+    resetForm();
+    toast.success("Receipt saved!");
+    onClose();
   }
 
   const total = lines.reduce((s, l) => s + (l.amount || 0), 0);
@@ -295,7 +168,7 @@ export default function ReceiptForm({
           <div>
             <label className="block text-sm text-gray-600">Customer</label>
             <EditableSelect<Customer>
-              value={order ? customerName : customers.find(c => c.id === customerId)?.name || ""}
+              value={customers.find(c => c.id === customerId)?.name || ""}
               table="customers"
               displayField="name"
               placeholder="Select customer"
@@ -408,7 +281,7 @@ export default function ReceiptForm({
 
         <div className="flex justify-end gap-2">
           <button onClick={() => { resetForm(); onClose(); }} className="px-3 py-1 border rounded">Cancel</button>
-          <button onClick={save} disabled={saving} className="px-4 py-2 bg-amber-600 text-white rounded">{saving ? "Saving..." : (order && order.id ? "Update Receipt" : "Save Receipt")}</button>
+          <button onClick={save} disabled={saving} className="px-4 py-2 bg-amber-600 text-white rounded">{saving ? "Saving..." : "Save Receipt"}</button>
         </div>
       </div>
     </div>

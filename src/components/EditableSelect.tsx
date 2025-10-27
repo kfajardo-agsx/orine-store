@@ -26,6 +26,15 @@ export function EditableSelect<T extends DBRecord = DBRecord>({
   const [options, setOptions] = useState<T[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // SYNC: update internal query when parent changes value
+  useEffect(() => {
+    // Only update when value is different to avoid stomping user typing
+    if ((value || "") !== query) {
+      setQuery(value || "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
   useEffect(() => {
     if (!query || query.trim() === "") {
       setOptions([]);
@@ -65,6 +74,7 @@ export function EditableSelect<T extends DBRecord = DBRecord>({
             if (!disableFreeType) {
                 onSelect(null, query);
             } else {
+                // keep the controlled value if free typing is disabled
                 setQuery(value || "");
             }
             }, 150);
