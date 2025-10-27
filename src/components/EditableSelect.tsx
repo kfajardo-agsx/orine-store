@@ -26,11 +26,9 @@ export function EditableSelect<T extends DBRecord = DBRecord>({
   const [options, setOptions] = useState<T[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
-  // SYNC: update internal query when parent changes value
   useEffect(() => {
-    // Only update when value is different to avoid stomping user typing
     if ((value || "") !== query) {
-      setQuery(value || "");
+      setQuery(value || query);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);

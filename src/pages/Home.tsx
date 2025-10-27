@@ -317,7 +317,7 @@ export default function Home() {
             orders.map((o) => (
               <div
                 key={o.id}
-                onClick={() => { setViewOrder(o); console.log(o); setOpenForm(true); }}
+                onClick={() => { setViewOrder(o); setOpenForm(true); }}
                 className="cursor-pointer bg-white p-4 rounded-md shadow flex justify-between items-start hover:bg-gray-50 transition"
               >
                 <div className="flex items-start gap-3">
@@ -364,7 +364,7 @@ export default function Home() {
           </div>
         )}
       </div>
-      
+
       <ReceiptForm open={openForm} onClose={() => setOpenForm(false)} onSaved={() => load(1)} />
       { viewOrder && <ReceiptForm open={openForm} order={viewOrder} onClose={() => { setOpenForm(false); setViewOrder(null) }} onSaved={() => load(1)} />}
     </div>

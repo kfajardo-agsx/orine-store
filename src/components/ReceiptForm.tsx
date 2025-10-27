@@ -103,7 +103,7 @@ export default function ReceiptForm({
                         description: l.description ?? l.name ?? l.item ?? "",  // 👈 add l.item as fallback
                         unit_price: typeof l.unit_price === "number"
                         ? l.unit_price.toFixed(2)
-                        : (l.unit_price ?? "0.00"),
+                        : (Number(l.unit_price).toFixed(2).toString() ?? "0.00"),
                         amount: Number(computed || 0),
                     } as Line;
                     })
@@ -191,9 +191,9 @@ export default function ReceiptForm({
         .upsert(
         [
             {
-            name: line.description.toLocaleUpperCase(),
-            unit: line.unit,
-            unit_price: line.unit_price,
+                name: line.description.toLocaleUpperCase(),
+                unit: line.unit,
+                unit_price: Number(line.unit_price).toFixed(2).toString(),
             },
         ],
         { onConflict: "name" }
@@ -287,7 +287,7 @@ export default function ReceiptForm({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <h3 className="text-lg font-semibold">ORINE STORE <div>Delivery Receipt</div></h3>
+          <h3 className="text-lg font-semibold">ORINE STORE { order ? <div>Update Delivery Receipt</div> : <div>New Delivery Receipt</div> }</h3>
           <div className="text-sm">Receipt #:<div> <input className="border px-2 py-1 rounded w-full" value={receiptNumber} onChange={e => setReceiptNumber(e.target.value)} /></div></div>
         </div>
 
@@ -330,7 +330,7 @@ export default function ReceiptForm({
                 <th className="pb-2">Unit</th>
                 <th className="pb-2">Item</th>
                 <th className="pb-1"></th>
-                <th className="pb-2">Unit Price</th>
+                <th className="pb-2 text-right">Unit Price</th>
                 <th className="pb-2 text-right">Amount</th>
                 <th></th>
               </tr>
@@ -375,11 +375,11 @@ export default function ReceiptForm({
                     />
                   </td>
                   <td className="w-1"></td>
-                  <td className="py-1">
+                  <td className="py-1 text-right">
                     <input
                       type="number"
                       step="1.00"
-                      className="w-16 border p-1 rounded text-sm"
+                      className="w-18 border p-1 rounded text-sm"
                       value={ln.unit_price}
                       onChange={(e) =>
                         updateLine(idx, { unit_price: e.target.value })
