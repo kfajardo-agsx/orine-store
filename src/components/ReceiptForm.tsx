@@ -88,7 +88,7 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
       if (!line.description || line.description === "") { toast.error("An item/s has no description set"); return; }
       if (!line.unit_price || line.unit_price === "" || Number(line.unit_price) === 0) { toast.error("An item/s has no unit price set"); return; }
     }
-    
+
     let custId = customerId;
     if (!customerId && customerName) {
         const { data: newCustomer, error: customerError } = await supabase
@@ -195,7 +195,7 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
           </div>
         </div>
 
-        <div className="mb-4 overflow-x-auto">
+        <div className="mb-4 overflow-x-auto pb-7">
           <table className="min-w-[600px] w-full text-xs border-collapse">
             <thead>
               <tr className="text-left">
