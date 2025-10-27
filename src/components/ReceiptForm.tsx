@@ -66,10 +66,9 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
     if (!receiptNumber) { toast.error("Enter receipt number"); return; }
     let custId = customerId;
     if (!customerId) {
-      console.log(customerName)
       const { data: newCustomer, error: customerError } = await supabase
         .from("customers")
-        .insert({ name: customerName })
+        .insert({ name: customerName?.toLocaleUpperCase() })
         .select()
         .single();
 
@@ -142,11 +141,11 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
               onSelect={(cust: Customer | null, typed?: string) => {
                 if (cust) {
                   setCustomerId(cust.id);
-                  setCustomerName(cust.name);
+                  setCustomerName(cust.name.toLocaleUpperCase());
                   setAddress(cust.address || "");
                 } else if (typed !== undefined) {
                   setCustomerId(null);
-                  setCustomerName(typed);
+                  setCustomerName(typed.toLocaleUpperCase());
                   setAddress("");
                 }
               }}
