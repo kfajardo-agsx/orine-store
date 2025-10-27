@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 import Home from "./pages/Home";
 import { Toaster } from "react-hot-toast";
-import Login from "./pages/login";
+import Login from "./pages/Login";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
