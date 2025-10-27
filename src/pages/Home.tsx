@@ -69,7 +69,14 @@ export default function Home() {
               >
                 <div>
                   <div className="font-medium text-sm text-gray-800">
-                    {o.customer?.name} - {o.date}
+                    {o.customer?.name}
+                  </div>
+                  <div className="font-medium text-sm text-gray-400">
+                    {new Date(o.date).toLocaleDateString("en-PH", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
                   </div>
                   <div className="font-medium text-sm text-gray-400">
                     #{o.receipt_number}

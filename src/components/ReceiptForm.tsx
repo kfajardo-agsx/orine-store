@@ -83,6 +83,12 @@ export default function ReceiptForm({ open, onClose }: { open: boolean; onClose:
   async function save() {
     if (!receiptNumber) { toast.error("Enter receipt number"); return; }
     if (!customerName || customerName === "") { toast.error("Set a valid customer name"); return; }
+    for (const line of lines) {
+      if (!line.unit || line.unit === "") { toast.error("An item/s has no unit set"); return; }
+      if (!line.description || line.description === "") { toast.error("An item/s has no description set"); return; }
+      if (!line.unit_price || line.unit_price === "" || Number(line.unit_price) === 0) { toast.error("An item/s has no unit price set"); return; }
+    }
+    
     let custId = customerId;
     if (!customerId && customerName) {
         const { data: newCustomer, error: customerError } = await supabase
