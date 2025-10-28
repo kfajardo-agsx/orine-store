@@ -19,9 +19,28 @@ export default function Home() {
     const from = (currentPage - 1) * pageSize;
     const to = from + pageSize - 1;
 
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError) {
+      console.error("Error getting user:", userError);
+      return;
+    }
+
+    const uid = user?.id;
+    if (!uid) {
+      console.error("No user logged in");
+      return;
+    }
+
+    console.log(uid);
+
     const { data, error, count } = await supabase
       .from("orders")
       .select(`*, customer:customers (*)`, { count: "exact" })
+      .eq("created_by", uid)
       .order("created_at", { ascending: false })
       .range(from, to);
 
