@@ -57,7 +57,7 @@ export default function ReceiptForm({
     const [address, setAddress] = useState("");
     const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
     const [deliveredBy, setDeliveredBy] = useState("");
-    const [lines, setLines] = useState<Line[]>([{ quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }]);
+    const [lines, setLines] = useState<Line[]>([{ quantity: "1", unit: "", description: "", unit_price: "0", amount: 0 }]);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => { if (open) loadLookups(); }, [open]);
@@ -102,12 +102,12 @@ export default function ReceiptForm({
                         unit: l.unit ?? "",
                         description: l.description ?? l.name ?? l.item ?? "",  // 👈 add l.item as fallback
                         unit_price: typeof l.unit_price === "number"
-                        ? l.unit_price.toFixed(2)
-                        : (Number(l.unit_price).toFixed(2).toString() ?? "0.00"),
+                        ? l.unit_price
+                        : (Number(l.unit_price).toString() ?? "0"),
                         amount: Number(computed || 0),
                     } as Line;
                     })
-                : [{ quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }];        setLines(safeLines);
+                : [{ quantity: "1", unit: "", description: "", unit_price: "0", amount: 0 }];        setLines(safeLines);
         } else {
         // creating new: reset
         resetForm();
@@ -132,11 +132,11 @@ export default function ReceiptForm({
     });
   }
 
-  function addRow() { setLines(prev => [...prev, { quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }]); }
+  function addRow() { setLines(prev => [...prev, { quantity: "1", unit: "", description: "", unit_price: "0", amount: 0 }]); }
   function removeLine(i: number) {
     setLines(prev => {
         const next = prev.filter((_, idx) => idx !== i);
-        return next.length ? next : [{ quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }];
+        return next.length ? next : [{ quantity: "1", unit: "", description: "", unit_price: "0", amount: 0 }];
     });
   }
 
@@ -147,7 +147,7 @@ export default function ReceiptForm({
     setAddress("");
     setDate(new Date().toISOString().slice(0, 10));
     setDeliveredBy("");
-    setLines([{ quantity: "1", unit: "", description: "", unit_price: "0.00", amount: 0 }]);
+    setLines([{ quantity: "1", unit: "", description: "", unit_price: "0", amount: 0 }]);
   }
 
   async function save() {
@@ -193,7 +193,7 @@ export default function ReceiptForm({
             {
                 name: line.description.toLocaleUpperCase(),
                 unit: line.unit,
-                unit_price: Number(line.unit_price).toFixed(2).toString(),
+                unit_price: Number(line.unit_price).toString(),
             },
         ],
         { onConflict: "name" }
@@ -366,7 +366,7 @@ export default function ReceiptForm({
                           updateLine(idx, {
                             description: it.name.toLocaleUpperCase(),
                             unit: it.unit || "",
-                            unit_price: it.unit_price.toFixed(2).toString() ?? "0.00",
+                            unit_price: it.unit_price.toString() ?? "0",
                           });
                         } else if (typed !== undefined) {
                           updateLine(idx, { description: typed.toLocaleUpperCase() });
